@@ -41,7 +41,7 @@ def ask():
     for sermon in sermons:
         text = f"{sermon['title']} {sermon.get('transcript', '')}".lower()
         score = sum(text.count(word) for word in query_words)
-        if score > 5:
+        if score > 0:
             results.append({'sermon': sermon, 'score': score})
     
     results.sort(key=lambda x: x['score'], reverse=True)
