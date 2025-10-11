@@ -56,6 +56,7 @@ def ask():
         for r in top_sermons:
             answer += f"• {r['sermon']['title']}\n"
         sources = [{'title': r['sermon']['title'], 'url': r['sermon']['url']} for r in top_sermons]
+        return jsonify({'status': 'success', 'answer': answer, 'sources': sources})
     # Build context from top sermons
     context = f"Question: {query}\n\nRelevant sermon excerpts:\n\n"
     for r in top_sermons:
