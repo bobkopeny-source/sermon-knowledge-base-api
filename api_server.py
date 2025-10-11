@@ -36,11 +36,31 @@ def ask():
     query = request.get_json().get('query', '')
     query_words = [w.lower() for w in query.split() if len(w) > 3]
     
-    # Find relevant sermons
+    # Find relevant sermons with better scoring
     results = []
     for sermon in sermons:
-        text = f"{sermon['title']} {sermon.get('transcript', '')}".lower()
-        score = sum(text.count(word) for word in query_words)
+        title = sermon['title'].lower()
+        transcript = sermon.get('transcript', '').lower()
+        
+        # Score based on multiple factors
+        score = 0
+        
+        # Title matches are most important (10x weight)
+        for word in query_words:
+            if word in title:
+                score += 10
+        
+        # Exact phrase match in transcript (5x weight)
+        query_lower = query.lower()
+        if query_lower in transcript:
+            score += 50
+        
+        # Individual word matches in transcript
+        for word in query_words:
+            count = transcript.count(word)
+            # Diminishing returns - cap contribution per word at 5
+            score += min(count, 5)
+        
         if score > 0:
             results.append({'sermon': sermon, 'score': score})
     
