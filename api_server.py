@@ -65,7 +65,7 @@ def ask():
             results.append({'sermon': sermon, 'score': score})
     
     results.sort(key=lambda x: x['score'], reverse=True)
-    top_sermons = results[:10]
+    top_sermons = results[:15]
     
     if not top_sermons:
         return jsonify({'status': 'success', 'answer': 'No relevant sermons found.', 'sources': []})
@@ -81,7 +81,7 @@ def ask():
     context = f"Question: {query}\n\nRelevant sermon excerpts:\n\n"
     for r in top_sermons:
         context += f"Title: {r['sermon']['title']}\n"
-        transcript = r['sermon'].get('transcript', '')[:8000]
+        transcript = r['sermon'].get('transcript', '')[:15000]
         context += f"Content: {transcript}\n\n"
     
     # Ask ChatGPT to synthesize
