@@ -89,10 +89,10 @@ def ask():
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are summarizing a pastor's teachings. CRITICAL: Only use information from the sermon excerpts provided below - do not add any content not found in the transcripts. Be brief (under 200 words). Answer in first person as the pastor starting with 'Based on my sermons...' Quote or paraphrase specific statements from the transcripts. If the transcripts don't contain enough information, say so rather than making up content."},
+                {"role": "system", "content": "You are summarizing a pastor's teachings. CRITICAL: Only use information from the sermon excerpts provided below - do not add any content not found in the transcripts. Be brief (under 150 words). Answer in first person starting with 'Based on my sermons...' then use bullet points (•) for 2-4 key points Quote or paraphrase specific statements from the transcripts. If the transcripts don't contain enough information, say so rather than making up content."},
                 {"role": "user", "content": context}
             ],
-            max_tokens=400,
+            max_tokens=300,
             temperature=0.7
         )
         
