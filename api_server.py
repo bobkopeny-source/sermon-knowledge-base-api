@@ -65,7 +65,7 @@ def ask():
             results.append({'sermon': sermon, 'score': score})
     
     results.sort(key=lambda x: x['score'], reverse=True)
-    top_sermons = results[:15]
+    top_sermons = results[:5]
     
     if not top_sermons:
         return jsonify({'status': 'success', 'answer': 'No relevant sermons found.', 'sources': []})
