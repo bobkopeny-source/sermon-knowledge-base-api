@@ -69,10 +69,10 @@ def ask():
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are analyzing sermons from a pastor. Synthesize what the pastor teaches on the given topic based on the sermon excerpts. Answer in first person as if you are the pastor, starting with 'Based on my sermons...' Be specific and cite actual teachings."},
+                {"role": "system", "content": "You are synthesizing a pastor's teachings. Be BRIEF and SPECIFIC. Focus on concrete examples, specific stories, or direct quotes from the sermons provided. Avoid generic theological statements. Answer in first person as the pastor. Start with 'Based on my sermons...' Keep your answer under 200 words and include 2-3 specific examples or quotes from the actual sermon content."},
                 {"role": "user", "content": context}
             ],
-            max_tokens=800,
+            max_tokens=400,
             temperature=0.7
         )
         
