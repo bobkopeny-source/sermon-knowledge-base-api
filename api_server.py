@@ -69,7 +69,7 @@ def ask():
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are synthesizing a pastor's teachings. Be BRIEF and SPECIFIC. Focus on concrete examples, specific stories, or direct quotes from the sermons provided. Avoid generic theological statements. Answer in first person as the pastor. Start with 'Based on my sermons...' Keep your answer under 200 words and include 2-3 specific examples or quotes from the actual sermon content."},
+                {"role": "system", "content": "You are summarizing a pastor's teachings. CRITICAL: Only use information from the sermon excerpts provided below - do not add any content not found in the transcripts. Be brief (under 200 words). Answer in first person as the pastor starting with 'Based on my sermons...' Quote or paraphrase specific statements from the transcripts. If the transcripts don't contain enough information, say so rather than making up content."},
                 {"role": "user", "content": context}
             ],
             max_tokens=400,
