@@ -22,9 +22,8 @@ except Exception as e:
 
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
 
-def extract_timestamp_from_excerpt(transcript_excerpt):
-    """Find first timestamp in excerpt and format for YouTube link"""
-    match = re.search(r'\[(\d+):(\d+):(\d+)\]|\[(\d+):(\d+)\]', transcript_excerpt)
+def extract_timestamp_from_excerpt(transcript):
+    match = re.search(r'\[(\d+):(\d+):(\d+)\]|\[(\d+):(\d+)\]', transcript)
     if match:
         if match.group(1) and match.group(2) and match.group(3):
             return f"{match.group(1)}h{match.group(2)}m{match.group(3)}s"
@@ -40,10 +39,8 @@ def health():
 def upload():
     admin_password = os.getenv('ADMIN_PASSWORD', 'default-password')
     provided_password = request.headers.get('X-Admin-Password')
-    
     if provided_password != admin_password:
-        return jsonify({'status': 'error', 'message': 'Unauthorized: Admin password required'}), 401
-    
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
     global sermons
     sermons = request.get_json().get('sermons', [])
     return jsonify({'status': 'success', 'sermons_loaded': len(sermons)})
@@ -52,34 +49,25 @@ def upload():
 def ask():
     query = request.get_json().get('query', '')
     query_words = [w.lower() for w in query.split() if len(w) > 3]
-    
     results = []
     for sermon in sermons:
         title = sermon['title'].lower()
         transcript = sermon.get('transcript', '').lower()
-        
         score = 0
         for word in query_words:
             if word in title:
                 score += 10
-        
-        query_lower = query.lower()
-        if query_lower in transcript:
+        if query.lower() in transcript:
             score += 50
-        
         for word in query_words:
             count = transcript.count(word)
             score += min(count, 5)
-        
         if score > 0:
             results.append({'sermon': sermon, 'score': score})
-    
     results.sort(key=lambda x: x['score'], reverse=True)
     top_sermons = results[:5]
-    
     if not top_sermons:
         return jsonify({'status': 'success', 'answer': 'No relevant sermons found.', 'sources': []})
-    
     if not client:
         answer = "Found relevant sermons but AI analysis not enabled.\n\n"
         for r in top_sermons:
@@ -87,19 +75,15 @@ def ask():
         sources = []
         for r in top_sermons:
             url = r['sermon']['url']
-            transcript_excerpt = r['sermon'].get('transcript', '')[:15000]
-            timestamp = extract_timestamp_from_excerpt(transcript_excerpt)
+            timestamp = extract_timestamp_from_excerpt(r['sermon'].get('transcript', ''))
             if timestamp:
                 url = f"{url}?t={timestamp}"
             sources.append({'title': r['sermon']['title'], 'url': url})
         return jsonify({'status': 'success', 'answer': answer, 'sources': sources})
-    
     context = f"Question: {query}\n\nRelevant sermon excerpts:\n\n"
     for r in top_sermons:
         context += f"Title: {r['sermon']['title']}\n"
-        transcript = r['sermon'].get('transcript', '')[:3000]
-        context += f"Content: {transcript}\n\n"
-    
+        context += f"Content: {r['sermon'].get('transcript', '')[:3000]}\n\n"
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -110,24 +94,19 @@ def ask():
             max_tokens=300,
             temperature=0.7
         )
-        
         answer = response.choices[0].message.content
         sources = []
         for r in top_sermons:
             url = r['sermon']['url']
-            transcript_excerpt = r['sermon'].get('transcript', '')[:15000]
-            timestamp = extract_timestamp_from_excerpt(transcript_excerpt)
+            timestamp = extract_timestamp_from_excerpt(r['sermon'].get('transcript', ''))
             if timestamp:
                 url = f"{url}?t={timestamp}"
             sources.append({'title': r['sermon']['title'], 'url': url})
-        
         return jsonify({'status': 'success', 'answer': answer, 'sources': sources})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == '__main__':
-    print("🚀 Sermon Knowledge Base API - AI Enhanced")
+    print("Sermon Knowledge Base API")
     port = int(os.environ.get('PORT', 5001))
-    print(f"Server: Port {port}")
-    print(f"AI Status: {'Enabled' if client else 'Disabled (add OPENAI_API_KEY to .env)'}")
     app.run(host='0.0.0.0', port=port, debug=False)
