@@ -2,13 +2,14 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
 sermons = []
-# Load sermons on startup
+
 try:
     import json
     with open('sermons_with_transcripts.json', 'r') as f:
@@ -21,12 +22,28 @@ except Exception as e:
 
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
 
+def extract_timestamp_from_excerpt(transcript_excerpt):
+    """Find first timestamp in excerpt and format for YouTube link"""
+    match = re.search(r'\[(\d+):(\d+):(\d+)\]|\[(\d+):(\d+)\]', transcript_excerpt)
+    if match:
+        if match.group(1) and match.group(2) and match.group(3):
+            return f"{match.group(1)}h{match.group(2)}m{match.group(3)}s"
+        elif match.group(4) and match.group(5):
+            return f"{match.group(4)}m{match.group(5)}s"
+    return None
+
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'healthy', 'sermons_loaded': len(sermons), 'ai_enabled': client is not None})
 
 @app.route('/api/sermons/upload', methods=['POST'])
 def upload():
+    admin_password = os.getenv('ADMIN_PASSWORD', 'default-password')
+    provided_password = request.headers.get('X-Admin-Password')
+    
+    if provided_password != admin_password:
+        return jsonify({'status': 'error', 'message': 'Unauthorized: Admin password required'}), 401
+    
     global sermons
     sermons = request.get_json().get('sermons', [])
     return jsonify({'status': 'success', 'sermons_loaded': len(sermons)})
@@ -36,29 +53,22 @@ def ask():
     query = request.get_json().get('query', '')
     query_words = [w.lower() for w in query.split() if len(w) > 3]
     
-    # Find relevant sermons with better scoring
     results = []
     for sermon in sermons:
         title = sermon['title'].lower()
         transcript = sermon.get('transcript', '').lower()
         
-        # Score based on multiple factors
         score = 0
-        
-        # Title matches are most important (10x weight)
         for word in query_words:
             if word in title:
                 score += 10
         
-        # Exact phrase match in transcript (5x weight)
         query_lower = query.lower()
         if query_lower in transcript:
             score += 50
         
-        # Individual word matches in transcript
         for word in query_words:
             count = transcript.count(word)
-            # Diminishing returns - cap contribution per word at 5
             score += min(count, 5)
         
         if score > 0:
@@ -71,25 +81,30 @@ def ask():
         return jsonify({'status': 'success', 'answer': 'No relevant sermons found.', 'sources': []})
     
     if not client:
-        # Fallback without AI
-        answer = "Found relevant sermons but AI analysis not enabled. Add OPENAI_API_KEY to .env file.\n\n"
+        answer = "Found relevant sermons but AI analysis not enabled.\n\n"
         for r in top_sermons:
-            answer += f"• {r['sermon']['title']}\n"
-        sources = [{'title': r['sermon']['title'], 'url': r['sermon']['url']} for r in top_sermons]
+            answer += f"- {r['sermon']['title']}\n"
+        sources = []
+        for r in top_sermons:
+            url = r['sermon']['url']
+            transcript_excerpt = r['sermon'].get('transcript', '')[:15000]
+            timestamp = extract_timestamp_from_excerpt(transcript_excerpt)
+            if timestamp:
+                url = f"{url}?t={timestamp}"
+            sources.append({'title': r['sermon']['title'], 'url': url})
         return jsonify({'status': 'success', 'answer': answer, 'sources': sources})
-    # Build context from top sermons
+    
     context = f"Question: {query}\n\nRelevant sermon excerpts:\n\n"
     for r in top_sermons:
         context += f"Title: {r['sermon']['title']}\n"
-        transcript = r['sermon'].get('transcript', '')[:15000]
+        transcript = r['sermon'].get('transcript', '')[:3000]
         context += f"Content: {transcript}\n\n"
     
-    # Ask ChatGPT to synthesize
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are summarizing a pastor's teachings. CRITICAL: Only use information from the sermon excerpts provided below - do not add any content not found in the transcripts. Be brief (under 150 words). Answer in first person starting with 'Based on my sermons...' then use bullet points (•) for 2-4 key points Quote or paraphrase specific statements from the transcripts. If the transcripts don't contain enough information, say so rather than making up content."},
+                {"role": "system", "content": "You are analyzing sermons from a pastor. Synthesize what the pastor teaches on the given topic based on the sermon excerpts. Answer in first person as if you are the pastor, starting with 'Based on my sermons...' Be specific and cite actual teachings."},
                 {"role": "user", "content": context}
             ],
             max_tokens=300,
@@ -97,7 +112,15 @@ def ask():
         )
         
         answer = response.choices[0].message.content
-        sources = [{'title': r['sermon']['title'], 'url': r['sermon']['url']} for r in top_sermons]
+        sources = []
+        for r in top_sermons:
+            url = r['sermon']['url']
+            transcript_excerpt = r['sermon'].get('transcript', '')[:15000]
+            timestamp = extract_timestamp_from_excerpt(transcript_excerpt)
+            if timestamp:
+                url = f"{url}?t={timestamp}"
+            sources.append({'title': r['sermon']['title'], 'url': url})
+        
         return jsonify({'status': 'success', 'answer': answer, 'sources': sources})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
@@ -108,5 +131,3 @@ if __name__ == '__main__':
     print(f"Server: Port {port}")
     print(f"AI Status: {'Enabled' if client else 'Disabled (add OPENAI_API_KEY to .env)'}")
     app.run(host='0.0.0.0', port=port, debug=False)
-
-
