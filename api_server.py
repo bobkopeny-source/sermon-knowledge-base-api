@@ -23,32 +23,27 @@ except Exception as e:
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
 
 def extract_relevant_timestamp(transcript, query_words):
-    """Find timestamp closest to where query words appear"""
     timestamps = [(m.group(0), m.start()) for m in re.finditer(r'\[(\d+):(\d+):(\d+)\]|\[(\d+):(\d+)\]', transcript)]
-    
     if not timestamps:
         return None
-    
     query_positions = []
     transcript_lower = transcript.lower()
     for word in query_words:
         pos = transcript_lower.find(word.lower())
         if pos != -1:
             query_positions.append(pos)
-    
     if not query_positions:
         timestamp_str = timestamps[0][0]
     else:
         avg_query_pos = sum(query_positions) / len(query_positions)
         closest_timestamp = min(timestamps, key=lambda t: abs(t[1] - avg_query_pos))
         timestamp_str = closest_timestamp[0]
-    
     match = re.match(r'\[(\d+):(\d+):(\d+)\]|\[(\d+):(\d+)\]', timestamp_str)
     if match:
-        if match.group(1) and match.group(2) and match.group(3):
-            return f"{int(match.group(1))}h{int(match.group(2))}m{int(match.group(3))}s"
-        elif match.group(4) and match.group(5):
-            return f"{int(match.group(4))}m{int(match.group(5))}s"
+        if match.group(1):
+            return str(int(match.group(1))*3600 + int(match.group(2))*60 + int(match.group(3)))
+        else:
+            return str(int(match.group(4))*60 + int(match.group(5)))
     return None
 
 @app.route('/api/health', methods=['GET'])
