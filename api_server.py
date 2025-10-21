@@ -24,13 +24,11 @@ client = OpenAI(api_key=os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KE
 
 def extract_relevant_timestamp(transcript, query_words):
     """Find timestamp closest to where query words appear"""
-    # Find all timestamps with their positions
     timestamps = [(m.group(0), m.start()) for m in re.finditer(r'\[(\d+):(\d+):(\d+)\]|\[(\d+):(\d+)\]', transcript)]
     
     if not timestamps:
         return None
     
-    # Find where query words appear in transcript
     query_positions = []
     transcript_lower = transcript.lower()
     for word in query_words:
@@ -39,21 +37,18 @@ def extract_relevant_timestamp(transcript, query_words):
             query_positions.append(pos)
     
     if not query_positions:
-        # No query words found, use first timestamp
         timestamp_str = timestamps[0][0]
     else:
-        # Find timestamp closest to query words
         avg_query_pos = sum(query_positions) / len(query_positions)
         closest_timestamp = min(timestamps, key=lambda t: abs(t[1] - avg_query_pos))
         timestamp_str = closest_timestamp[0]
     
-    # Convert timestamp to YouTube format
     match = re.match(r'\[(\d+):(\d+):(\d+)\]|\[(\d+):(\d+)\]', timestamp_str)
     if match:
         if match.group(1) and match.group(2) and match.group(3):
-            return f"{match.group(1)}h{match.group(2)}m{match.group(3)}s"
+            return f"{int(match.group(1))}h{int(match.group(2))}m{int(match.group(3))}s"
         elif match.group(4) and match.group(5):
-            return f"{match.group(4)}m{match.group(5)}s"
+            return f"{int(match.group(4))}m{int(match.group(5))}s"
     return None
 
 @app.route('/api/health', methods=['GET'])
